@@ -95,6 +95,7 @@ def get_new_cookie(user, pwd, target_url):
     r = s.get(url2, headers=headers, allow_redirects=False)
 
     cookies = dict(r.cookies)
+    cookies.pop("BIGipServerpool-tyb-cggl-yysf")
 
     # 必须使用带 jsessionid 参数的 get 请求访问一次，否则cookie无效。
     url3 = r.headers["Location"]
@@ -108,44 +109,8 @@ def get_new_cookie(user, pwd, target_url):
 
 if __name__ == "__main__":
     # 测试
-    user = "M20111111"
-    pwd = "1111111111"
+    user = ""  # 学号
+    pwd = ""  # 统一认证密码
     target_url = "http://pecg.hust.edu.cn/cggl/index1"
     cookies, token = get_new_cookie(user, pwd, target_url)
-    print("initaial:", token)
-    headers.update(
-        {"Referer": "http://pecg.hust.edu.cn/cggl/", "Accept-Encoding": "gzip, deflate"}
-    )
-    import time
-
-    time.sleep(3)
-    r = requests.get(
-        "http://pecg.hust.edu.cn/cggl/front/yuyuexz", cookies=cookies, headers=headers
-    )
-    print("yuyuexe page:", find_token(r.text))
-
-    # -----------------------
-    pian_status = {
-        "300": "7",
-        "299": "6",
-        "298": "5",
-        "297": "4",
-        "301": "8",
-        "134": "1",
-        "295": "2",
-        "296": "3",
-    }
-    infos = ["2019-11-17", "12:00:00"]
-    url = "http://pecg.hust.edu.cn/" + "cggl/front/ajax/getsyzt"
-    end_time = str(int(re.search(r"(\d+):00:00", infos[1]).group(1)) + 2) + ":00:00"
-    datas = {
-        "changdibh": 69,
-        "data": ",".join(
-            list(str(i) + "@" + infos[1] + "-" + end_time for i in pian_status.keys())
-        ),
-        "date": infos[0],
-        "token": token,
-    }
-    cookies.update({"BIGipServerpool-tyb-cggl-mh": "352522412.36895.0000"})
-    r = requests.post(url, datas, cookies=cookies)
-    print(r.text)
+    print("Cookie:", cookies, "initaial:", token)
