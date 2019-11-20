@@ -11,6 +11,7 @@ from tkinter import messagebox
 import tkinter as tk
 from time import sleep
 from . import backend
+from . import mymessage
 
 
 class RunPage(tk.Frame):
@@ -26,6 +27,7 @@ class RunPage(tk.Frame):
         self.run_flag = tk.IntVar()
         self.run_flag.set(0)
         self.T = {}
+        self.message_count_down = False
         self.frame_1 = tk.LabelFrame(
             self, text="选择预定日期与开始时间（点击自动选择并查询）", height=100, width=630
         )
@@ -71,7 +73,8 @@ class RunPage(tk.Frame):
         self.label_couner = Label(self.frame_2, text="刷新次数：", anchor=E)
         self.couner_num = Label(self.frame_2, textvariable=self.counter)
         self.label_sucessed = Label(self.frame_2, text="是否预定成功？：", anchor=E)
-        self.is_sucessed = Label(self.frame_2, bg="Red", textvariable=self.success)
+        self.is_sucessed = Label(
+            self.frame_2, bg="Red", textvariable=self.success)
         self.button_start = Button(
             self.frame_2, text="开始监控", bg="SpringGreen", command=self.start_job
         )
@@ -124,12 +127,15 @@ class RunPage(tk.Frame):
             height=height * 2 + space * 3,
         )
         self.label_date_1.place(x=space, y=space, width=120, height=height)
-        self.label_date_2.place(x=space + 120, y=space, width=80, height=height)
-        self.label_time_1.place(x=space, y=space * 2 + height, width=120, height=height)
+        self.label_date_2.place(x=space + 120, y=space,
+                                width=80, height=height)
+        self.label_time_1.place(x=space, y=space * 2 +
+                                height, width=120, height=height)
         self.label_time_2.place(
             x=space + 120, y=space * 2 + height, width=80, height=height
         )
-        self.button_start.place(x=space + 100 + 100, y=space, width=180, height=height)
+        self.button_start.place(x=space + 100 + 100,
+                                y=space, width=180, height=height)
         self.button_stop.place(
             x=space + 120 + 80, y=space * 2 + height, width=180, height=height
         )
@@ -151,7 +157,8 @@ class RunPage(tk.Frame):
             width=80,
             height=height,
         )
-        self.frame_3.place(x=f_x, y=150 + 100 + space * 3, width=630, height=height * 6)
+        self.frame_3.place(x=f_x, y=150 + 100 + space * 3,
+                           width=630, height=height * 6)
         for i in range(8):
             self.show_courts[i].place(
                 x=10 + (f3_width + 40) * (i % 4),
@@ -165,7 +172,7 @@ class RunPage(tk.Frame):
 
     def judge_time(self):
         target_time = "08:00"  # 系统开放时间
-        delta_time = 10
+        delta_time = 2
         current_time = time.strftime("%H:%M", time.localtime())
         d1_ = datetime.datetime.strptime(target_time, "%H:%M")
         d2_ = datetime.datetime.strptime(current_time, "%H:%M")
@@ -188,31 +195,12 @@ class RunPage(tk.Frame):
                     if i != 1:
                         sleep(dt)
                 else:
-                    dt = 10
+                    dt = 4
                     if i != 1:
-                        sleep(10)
-                try:
-                    self.update_status(True, infos)
-                except UserWarning as UW:
-                    messagebox.showinfo(
-                        "提示",
-                        "--" * 28
-                        + "\n\n{}\n".format(UW)
-                        + "--" * 28
-                        + "\n{}秒后重试".format(dt),
-                    )
-                except Warning as War:
-                    messagebox.showerror(
-                        "警告",
-                        "--" * 28
-                        + "\n返回码 与 返回信息\n{}\n".format(War)
-                        + "--" * 28
-                        + "\n{}秒后重试".format(dt),
-                    )
-                # print('后台运行...', i)
+                        sleep(dt)
+                    self.update_status(True, infos, dt)
                 self.couner_num.configure(textvariable=self.counter)
                 i += 1
-                break
 
     def start_job(self):
         if self.run_flag.get() == 0 and self.success.get() == "No":
@@ -243,53 +231,22 @@ class RunPage(tk.Frame):
                 bg="SpringGreen", state=tk.NORMAL, text="开始监控", fg="Black"
             )
         else:
-            messagebox.showinfo("提示", "   =_=当前没有后台监控任务=_=   \n\n   不要重复点击!   \n   ")
+            messagebox.showinfo(
+                "提示", "   =_=当前没有后台监控任务=_=   \n\n   不要重复点击!   \n   ")
 
-    def update_status(self, doit=False, infos=None):
-        if self.reserve_date.get() and self.reserve_time.get():
+    def update_status(self, doit=False, infos=None, dt=0):
+        _date = self.reserve_date.get()
+        _time = self.reserve_time.get()
+        if _date and _time:
             res = {}
             court = backend.pian_status
-            # print(court)
-            res, _ = backend.get_status(
-                [self.reserve_date.get(), self.reserve_time.get()]
-            )
+            res, _ = backend.get_status((_date, _time))
             # print(res)
             for key in res.keys():
                 # 2：已预约；4：不开放；1：可预约；3：使用中；5：预约中，''：不可预约
                 ii = int(court[key])
                 if res[key] == 1:
-                    if doit and infos:
-                        is_ok = backend.appointment(
-                            key, self.reserve_date.get(), self.reserve_time.get(), infos
-                        )
-                        if is_ok:
-                            self.success.set("Yes")
-                            self.is_sucessed.configure(
-                                textvariable=self.success, bg="LightGray", fg="Magenta"
-                            )
-                            self.stop_job()  # 退出线程
-                            self.show_courts[ii - 1].configure(
-                                text="{}号场地\n程序预约了该场地".format(ii),
-                                background="Magenta",
-                                highlightbackground="Green",
-                                foreground="Gold",
-                            )
-                            break
-                        else:
-                            self.show_courts[ii - 1].configure(
-                                text="{}号场地\n尝试预约，已失败".format(ii),
-                                background="Green",
-                                highlightbackground="Gold",
-                                foreground="Gold",
-                            )
-                            raise UserWarning("预约失败 д，同伴错误或者是未到时间？")
-                    else:
-                        self.show_courts[ii - 1].configure(
-                            text="{}号场地\n可预约".format(ii),
-                            background="Green",
-                            highlightbackground="Gold",
-                            foreground="Gold",
-                        )
+                    self.try_to_reverse(doit, infos, key, ii, _date, _time, dt)
                 elif res[key] == 2:
                     self.show_courts[ii - 1].configure(
                         text="{}号场地\n已被预约".format(ii),
@@ -326,13 +283,63 @@ class RunPage(tk.Frame):
                         foreground="Gold",
                     )
             if doit and infos:
-                if 1 not in res.values():
+                print(res.values())
+                if res and 1 not in res.values():
                     self.stop_job()  # 退出线程
                     messagebox.showinfo(
                         "提示",
                         "--" * 28
                         + "\n   =_=没有可预约的场地=_=   \n\n   请选择其他时间和日期的场地预约!   \n   ",
                     )
+
+    def try_to_reverse(self, doit, infos, key, ii, _date, _time, dt):
+        '''尝试预定单个场地'''
+        if doit and infos and self.success.get() != 'Yes':
+            print('appoint------->', key, ii)
+            is_ok = False
+            try:
+                sleep(1)
+                is_ok = backend.appointment(key, _date, _time, infos)
+            except UserWarning as UW:
+                msg = ("-" * 28 + "\n{}\n".format(UW) +
+                       "-" * 28 + "\n{}秒后重试".format(dt), )
+                # messagebox.showinfo("提示", msg)
+                if not self.message_count_down:
+                    mymessage.CountDownMessageBox(self, msg)
+            except Warning as War:
+                msg = ("--" * 28 + "\n返回码 与 返回信息\n{}\n".format(War) +
+                       "--" * 28 + "\n{}秒后重试".format(dt), )
+                messagebox.showerror("警告", msg)
+                # if not self.message_count_down:
+                #     mymessage.CountDownMessageBox(self)
+                # print('后台运行...', i)
+            if is_ok:
+                self.success.set("Yes")
+                self.is_sucessed.configure(
+                    textvariable=self.success, bg="LightGray", fg="Magenta"
+                )
+                self.stop_job()  # 退出线程
+                self.show_courts[ii - 1].configure(
+                    text="{}号场地\n程序预约了该场地".format(ii),
+                    background="Magenta",
+                    highlightbackground="Green",
+                    foreground="Gold",
+                )
+            else:
+                self.show_courts[ii - 1].configure(
+                    text="{}号场地\n尝试预约，已失败".format(ii),
+                    background="Green",
+                    highlightbackground="Gold",
+                    foreground="Gold",
+                )
+                # raise UserWarning("预约失败 д，同伴错误或者是未到时间？")
+        else:
+            self.show_courts[ii - 1].configure(
+                text="{}号场地\n可预约".format(ii),
+                background="Green",
+                highlightbackground="Gold",
+                foreground="Gold",
+            )
 
     def set_reserve_date(self):
         self.update_status()
