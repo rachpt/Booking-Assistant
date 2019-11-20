@@ -121,6 +121,7 @@ def update_cookie():
 
 
 def get_confirm_data(html):
+    """获取预定确认表单数据"""
     data = {}
     pattern = r'input[^>]name[^>]+value[^>]+"'
     infos = re.findall(pattern, html)
@@ -156,8 +157,9 @@ def appointment(item, date, start_time, infos):
     url3 = Base_Url + "cggl/front/step3"
     data3 = get_confirm_data(r.text)
     token = match_token(r.text)
-
+    data3.update({"token": (token, token)})
     headers.update({"Referer": url2, "Origin": "http://pecg.hust.edu.cn"})
+    print(data3)
     # 调试代码
     # if False:
     if True:
@@ -166,7 +168,6 @@ def appointment(item, date, start_time, infos):
         )
         if r.status_code != 200:
             raise Warning(r.status_code, "step3 error" + r.text)
-    # print(data3, token)
     return True if r.status_code == 200 else False
 
 
