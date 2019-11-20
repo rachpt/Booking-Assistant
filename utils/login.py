@@ -43,13 +43,12 @@ def find_token(html):
     return token
 
 
-def get_new_cookie(user, pwd, target_url):
+def get_new_cookie(s, user, pwd, target_url):
     """
     参数：用户名，密码，认证网站地址
     返回：cookie字典，token
     通过统一认证登录，获取cookie
     """
-    s = requests.session()
 
     pass_url = "https://pass.hust.edu.cn/cas/login"
 
@@ -93,16 +92,16 @@ def get_new_cookie(user, pwd, target_url):
     url2 = r.headers.get("Location")
     # 获取 cookie
     r = s.get(url2, headers=headers, allow_redirects=False)
-
     cookies = dict(r.cookies)
-    cookies.pop("BIGipServerpool-tyb-cggl-yysf")
 
     # 必须使用带 jsessionid 参数的 get 请求访问一次，否则cookie无效。
     url3 = r.headers["Location"]
-    s.get(url3, headers=headers, cookies=cookies, allow_redirects=False)
+    s.get(url3, headers=headers, allow_redirects=False)
     # 验证 是否有登录成功才有的问候语
-    r = s.get(target_url, headers=headers, cookies=cookies,)
-
+    r = s.get(target_url, headers=headers, cookies=cookies)
+    cookies = r.request.headers.get("Cookie").split(";")  # 字符串到列表
+    cookies = set([i.strip() for i in cookies])  # 去重，注意前后空格
+    cookies = {i.split("=")[0]: i.split("=")[1] for i in cookies}  # 字典
     # 登录成功，cookie有效
     return (cookies, find_token(r.text)) if "您好" in r.text else (None, None)
 
@@ -112,5 +111,12 @@ if __name__ == "__main__":
     user = ""  # 学号
     pwd = ""  # 统一认证密码
     target_url = "http://pecg.hust.edu.cn/cggl/index1"
-    cookies, token = get_new_cookie(user, pwd, target_url)
+    s = requests.Session()
+
+    cookies, token = get_new_cookie(s, user, pwd, target_url)
     print("Cookie:", cookies, "initaial:", token)
+
+    url = "http://pecg.hust.edu.cn/cggl/index"
+    r = s.get(url)
+    if "退出" in r.text:
+        print(r.request.headers)
