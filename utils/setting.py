@@ -25,8 +25,6 @@ class SettingPage(tk.Frame):
 
         self.label_id = Label(self, text="学号：", anchor=E)
         self.label_pwd = Label(self, text="统一身份认证密码：", anchor=E)
-        self.label_browser = Label(self, text="选择浏览器：", anchor=E)
-        self.label_browser_path = Label(self, text="浏览器路径：", anchor=E)
 
         self.entry_id = tk.Entry(
             self,
@@ -44,30 +42,6 @@ class SettingPage(tk.Frame):
         )
         self.entry_pwd["show"] = "*"
 
-        self.choose_firefox = tk.Radiobutton(
-            self,
-            text="Firefox",
-            variable=self.var_browser,
-            value="Firefox",
-            command=self.set_browser,
-        )
-        self.choose_chrome = tk.Radiobutton(
-            self,
-            text="Chrome",
-            variable=self.var_browser,
-            value="Chrome",
-            command=self.set_browser,
-        )
-
-        self.entry_browser_path = tk.Entry(
-            self,
-            textvariable=self.var_browser_path,
-            width=60,
-            borderwidth=3,
-            font=("Helvetica", "10"),
-        )
-
-        self.button_path = Button(self, text="...", command=self.select_brower_path)
         self.button_login = Button(self, text="验证并保存", command=self.verification)
         self.button_checking = Button(
             self, text="正在后台验证用户，请稍等 ...", bg="LightGreen", fg="Red"
@@ -131,48 +105,11 @@ class SettingPage(tk.Frame):
         self.label_pwd.place(
             x=160, y=top + (height + hspace), width=middle - 160, height=height
         )
-        # self.label_browser.place(
-        #     x=190, y=top + (height + hspace) * 2, width=middle - 190, height=height
-        # )
 
         self.entry_id.place(x=middle, y=top, width=250, height=height)
         self.entry_pwd.place(
             x=middle, y=top + (height + hspace), width=250, height=height
         )
-        # self.choose_firefox.place(
-        #     x=middle, y=top + (height + hspace) * 2, width=80, height=height
-        # )
-        # self.choose_chrome.place(
-        #     x=middle + 90, y=top + (height + hspace) * 2, width=80, height=height
-        # )
-        # if self.var_browser.get() == "Firefox":
-        #     self.choose_firefox.select()
-        # elif self.var_browser.get() == "Chrome":
-        #     self.choose_chrome.select()
-        # else:
-        #     self.choose_firefox.select()
-
-        # if backend.is_win:
-        if False:
-            self.label_browser_path.place(
-                x=190 - 70,
-                y=top + (height + hspace) * 3,
-                width=middle - 190,
-                height=height,
-            )
-            self.entry_browser_path.place(
-                x=middle - 70,
-                y=top + (height + hspace) * 3,
-                width=250 + 70 * 2,
-                height=height,
-            )
-
-            self.button_path.place(
-                x=middle + 260 + 70,
-                y=top + (height + hspace) * 3,
-                width=40,
-                height=height,
-            )
 
         f_x = 30
         f_y = 16
@@ -215,28 +152,6 @@ class SettingPage(tk.Frame):
         except FileNotFoundError:
             pass
 
-    def select_brower_path(self):
-        path_ = askopenfilename()
-        self.var_browser_path.set(path_)
-        self.entry_browser_path.configure(textvariable=self.var_browser_path)
-
-    def set_browser(self):
-        default_firefox_path = "C:/Program Files/Mozilla Firefox/firefox.exe"
-        default_chrome_path = "C:/Program Files/Google Chrome/chrome.exe"
-        if self.var_browser.get() == "Firefox":
-            if (
-                not self.var_browser_path.get()
-                or self.var_browser_path.get() == default_chrome_path
-            ):
-                self.var_browser_path.set(default_firefox_path)
-        elif self.var_browser.get() == "Chrome":
-            if (
-                not self.var_browser_path.get()
-                or self.var_browser_path.get() == default_firefox_path
-            ):
-                self.var_browser_path.set(default_chrome_path)
-        self.entry_browser_path.configure(textvariable=self.var_browser_path)
-
     def verification(self, auto=False):
         if auto:
             self.is_checking.set(True)
@@ -244,8 +159,6 @@ class SettingPage(tk.Frame):
         try:
             student_id = self.var_id.get()
             student_pwd = self.var_pwd.get()
-            browser = self.var_browser.get()
-            browser_path = self.var_browser_path.get()
             pa_name = self.var_pa_name.get()
             pa_num = self.var_pa_num.get()
             pa_pwd = self.var_pa_pwd.get()
@@ -254,8 +167,6 @@ class SettingPage(tk.Frame):
             user_info = {
                 "student_id": student_id,
                 "student_pwd": student_pwd,
-                "browser": browser,
-                "browser_path": browser_path,
                 "pa_name": pa_name,
                 "pa_num": pa_num,
                 "pa_pwd": pa_pwd,

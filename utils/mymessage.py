@@ -22,11 +22,14 @@ class CountDownMessageBox(tk.Toplevel):
         self.msg_text = msg_text
         tk.Toplevel.__init__(self, app)
         self.geometry(
-            "%dx%d+%d+%d" % (450, 300, (self.app.controller.X - 650) /
-                             2, (self.app.controller.Y - 700) / 2)
+            "%dx%d+%d+%d"
+            % (
+                400,
+                200,
+                (self.app.controller.X - 400) / 2,
+                (self.app.controller.Y - 200) / 2,
+            )
         )
-        # print((250, 200, (self.app.controller.X - 250) /
-        #        2, (self.app.controller.Y - 200) / 2))
         self.app.message_count_down = True
         self.build()
 

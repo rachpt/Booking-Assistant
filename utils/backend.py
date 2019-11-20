@@ -6,6 +6,8 @@ import os
 import re
 import json
 import pickle
+import random
+import datetime
 import requests
 from . import setting
 from . import login
@@ -65,7 +67,6 @@ def match_token(html):
         token = re.search("([0-9a-z]{30,})", token[0])
         if token:
             token = token.group(1)
-    # print("match token:", token)
     return token
 
 
@@ -76,36 +77,12 @@ def check_cookie(cookies):
         {"Host": "pecg.hust.edu.cn", "Referer": "http://pecg.hust.edu.cn/cggl/"}
     )
     url = Base_Url + "cggl/front/huiyuandetail"
-    r = session.get(url, headers=headers, cookies=cookies,
-                    allow_redirects=False)
+    r = session.get(url, headers=headers, cookies=cookies, allow_redirects=False)
     if "退出" in r.text or r.status_code == 200:
         token = match_token(r.text)
         return True
     else:
         return False
-
-
-def get_token(cookies, param=None):
-    """
-    获取 token；param: 0 日期，1 时间
-    注意：时间在 22点至8点间，token需要使用其他url地址获取。
-    """
-    params = {"cdbh": "69"}
-    tok_url = Base_Url + "cggl/front/syqk"
-    if param:
-        params.update({"date": param[0], "starttime": param[1], "endtime": ""})
-        session.headers.update(
-            {"Referer": tok_url + "?date={}&type=1&cdbh=69".format(param[0])}
-        )
-    else:
-        session.headers.update({"Referer": Base_Url + "cggl/front/yuyuexz"})
-    r = session.get(tok_url, params=params,
-                    cookies=cookies, allow_redirects=False)
-    if r.status_code != 200:
-        tok_url = Base_Url + "cggl/front/yuyuexz"
-        r = session.get(tok_url, cookies=cookies, allow_redirects=False)
-        # print('token---->>', r.status_code)
-    return match_token(r.text)
 
 
 def force_update_cookie(infos):
@@ -114,15 +91,11 @@ def force_update_cookie(infos):
     username = infos["student_id"]
     password = infos["student_pwd"]
     target_url = Base_Url + "cggl/index1"
-    cookies, token = login.get_new_cookie(
-        session, username, password, target_url)
-    print("新Cookie: ", cookies)
+    cookies, token = login.get_new_cookie(session, username, password, target_url)
     successed = check_cookie(cookies)
-    print(successed)
     if successed:
         with open(Cookie_Path, "wb") as _file:
             pickle.dump(cookies, _file)
-            print("新Cookie: ", cookies)
         return True
     return False
 
@@ -137,16 +110,12 @@ def update_cookie():
             cookies = pickle.load(_file)
             # 验证旧的 Cookie 是否有效
             if not check_cookie(cookies):
-                print("旧Cookie无效：", cookies)
                 raise UserWarning("Cookie 无效")
     except (FileNotFoundError, UserWarning):
         try:
-            print("更新cookie中……")
             infos = load_config()
-            print(infos)
             _ = force_update_cookie(infos)
         except (FileNotFoundError, Exception):
-            print("更新cookie失败")
             pass
     return cookies
 
@@ -167,6 +136,42 @@ def appointment(item, date, start_time, infos):
     """
     参数： 1.预约场地代号，2.预约日期，3.预约时间段开始点，4.同伴信息字典，返回  bool 值
     """
+    r, url2, cookies = step2_post_form(date, start_time, infos, item)
+    # print("appoint: step2(第一次):", r.status_code, r.text)
+    if r.status_code != 200:
+        raise UserWarning(
+            r.status_code, "{},step2 error:{}".format(r.status_code, r.text)
+        )
+    if "表单验证失败" in r.text:
+        # 更新token，再试一次
+        r, url2, cookies = step2_post_form(date, start_time, infos, item)
+        # print("appoint: step2:", r.status_code, r.text)
+        if r.status_code != 200:
+            raise UserWarning(
+                r.status_code, "{},step2 error:{}".format(r.status_code, r.text)
+            )
+        if "表单验证失败" in r.text:
+            raise UserWarning(r.status_code, "step2 表单再次验证失败" + r.text)
+    # 确认预定
+    url3 = Base_Url + "cggl/front/step3"
+    data3 = get_confirm_data(r.text)
+    token = match_token(r.text)
+
+    headers.update({"Referer": url2, "Origin": "http://pecg.hust.edu.cn"})
+    # 调试代码
+    # if False:
+    if True:
+        r = session.post(
+            url3, data3, headers=headers, cookies=cookies, allow_redirects=False
+        )
+        if r.status_code != 200:
+            raise Warning(r.status_code, "step3 error" + r.text)
+    # print(data3, token)
+    return True if r.status_code == 200 else False
+
+
+def step2_post_form(date, start_time, infos, item):
+    """方法独立，方便重复调用"""
     global headers, cookies
     cookies = update_cookie()
     _, token = get_status([date, start_time])
@@ -188,77 +193,147 @@ def appointment(item, date, start_time, infos):
     r = session.post(
         url2, data2, headers=headers, cookies=cookies, allow_redirects=False
     )
-    # print("#" * 15)
-    # print(r.request.headers)
-    print(r.status_code, r.text)
+    return r, url2, cookies
+
+
+def get_random_day_and_time(infos):
+    """返回合法的随机日期以及时间，用于更新 token"""
+    days = []
+    times = []
+    for i in range(7):
+        _day = datetime.date.today() + datetime.timedelta(days=i)
+        _day = _day.strftime("%Y-%m-%d")
+        if _day != infos[0]:
+            days.append(_day)
+        _time = "{0:02d}:00:00".format(8 + 2 * i)
+        if _time != infos[1]:
+            times.append(_time)
+    day_ = days[random.randint(0, len(days) - 1)]
+    time_ = times[random.randint(0, len(times) - 1)]
+    return (day_, time_)
+
+
+def get_token_by_refresh(cookies, param):
+    """刷新当前页面"""
+    params = {"cdbh": "69"}
+    tok_url = Base_Url + "cggl/front/syqk"
+    date = param[0]
+    stime = param[1]
+    ref_url = tok_url + "?cdbh=69&date=" + date + "&starttime=" + stime + "&endtime="
+    params.update({"date": date, "starttime": stime, "endtime": ""})
+    session.headers.update(
+        {"X-Requested-With": None, "Upgrade-Insecure-Requests": "1", "Referer": ref_url}
+    )
+    r = session.get(tok_url, params=params, cookies=cookies, allow_redirects=False)
+
+    return tok_url, match_token(r.text)
+
+
+def get_token_by_random_refresh(cookies, param):
+    """先去其他页面，再返回当前页面"""
+    infos_other = get_random_day_and_time(param)
+    params = {"cdbh": "69"}
+    date = param[0]
+    stime = param[1]
+    date_2 = infos_other[0]
+    stime_2 = infos_other[1]
+    params.update({"date": date_2, "starttime": stime_2, "endtime": ""})
+    tok_url = Base_Url + "cggl/front/syqk"
+    ref_url = tok_url + "?cdbh=69&date=" + date + "&starttime=" + stime + "&endtime="
+    session.headers.update(
+        {"X-Requested-With": None, "Upgrade-Insecure-Requests": "1", "Referer": ref_url}
+    )
+    r = session.get(tok_url, params=params, cookies=cookies, allow_redirects=False)
+    target_url = r.url
+    session.headers.update({"Referer": target_url})
+    r = session.get(ref_url, params=params, cookies=cookies, allow_redirects=False)
+
+    return ref_url, match_token(r.text)
+
+
+def get_token_normal(cookies, param=None):
+    """
+    获取 token；param: 0 日期，1 时间；refparam与param类似，表示上一次的param
+    注意：时间在 22点至8点间，token需要使用其他url地址获取。
+    """
+    params = {"cdbh": "69"}
+    tok_url = Base_Url + "cggl/front/syqk"
+    session.headers.update({"X-Requested-With": None, "Upgrade-Insecure-Requests": "1"})
+
+    # Referer 与 token 不匹配，第二次则会返回“表单验证失败，请重新返回提交”
+    session.headers.update({"Referer": Base_Url + "cggl/front/yuyuexz"})
+
+    r = session.get(tok_url, params=params, cookies=cookies, allow_redirects=False)
+    # print("token---->>1", r.status_code, r.request.headers)
     if r.status_code != 200:
-        raise UserWarning(r.status_code, "step2 error" + r.text)
-    if '表单验证失败' in r.text:
-        raise UserWarning(r.status_code, "step2 表单验证失败" + r.text)
-    # 确认预定
-    url3 = Base_Url + "cggl/front/step3"
-    data3 = get_confirm_data(r.text)
-    token = match_token(r.text)
-
-    headers.update({"Referer": url2, "Origin": "http://pecg.hust.edu.cn"})
-    # 调试代码
-    if False:
-        r = session.post(
-            url3, data3, headers=headers, cookies=cookies, allow_redirects=False
-        )
-        if r.status_code != 200:
-            raise Warning(r.status_code, "step3 error" + r.text)
-    print(data3, token)
-    return True if r.status_code == 200 else False
+        # 非预定时间，只能用于查询，该token不能用于预定
+        tok_url = Base_Url + "cggl/front/yuyuexz"
+        r = session.get(tok_url, cookies=cookies, allow_redirects=False)
+        # print("token---->>2", r.status_code, r.request.headers.get("Referer"))
+    return tok_url, match_token(r.text)
 
 
-def get_status(infos):
+def get_status(infos, refresh=False, rand_refresh=False):
     """
     infos 为 日期(info[0]) 与 时间(info[1])，返回 场地状态信息字典
     """
     global cookies
     res = {}
-    cookies = update_cookie()
-    token = ''
-    token = get_token(cookies, infos)
-    # print('used token:', token)
-    if token:
-        ref = Base_Url + "cggl/front/syqk?cdbh=69&date={}&starttime={}&endtime=".format(
-            infos[0], infos[1]
-        )
-        session.headers.update(
-            {
-                "Referer": ref,
-                "Host": "pecg.hust.edu.cn",
-                "X-Requested-With": "XMLHttpRequest",
-                "Origin": "http://pecg.hust.edu.cn",
-            }
-        )
+    token_out = ""
 
-        url = "http://pecg.hust.edu.cn/cggl/front/ajax/getsyzt"
-        end_time = str(
-            int(re.search(r"(\d+):00:00", infos[1]).group(1)) + 2) + ":00:00"
+    cookies = update_cookie()
+    if rand_refresh:
+        tok_url, token_in = get_token_by_random_refresh(cookies, infos)
+    elif refresh:
+        tok_url, token_in = get_token_by_refresh(cookies, infos)
+    else:
+        tok_url, token_in = get_token_normal(cookies, infos)
+
+    if token_in:
+        date = str(infos[0])
+        start_time = str(infos[1])
+        header_patch = {
+            "Upgrade-Insecure-Requests": None,
+            "Referer": tok_url,
+            "Host": "pecg.hust.edu.cn",
+            "X-Requested-With": "XMLHttpRequest",
+            "Origin": "http://pecg.hust.edu.cn",
+        }
+        session.headers.update(header_patch)
+
+        url = Base_Url + "cggl/front/ajax/getsyzt"
+        end_time = re.search(r"(\d+):00:00", start_time).group(1)
+        end_time = int(end_time) + 2
+        end_time = str(end_time) + ":00:00"
+        _data_ = [
+            str(i) + "@" + start_time + "-" + end_time for i in pian_status.keys()
+        ]
         datas = {
             "changdibh": 69,
-            "data": ",".join(
-                list(
-                    str(i) + "@" + infos[1] + "-" + end_time for i in pian_status.keys()
-                )
-            ),
-            "date": infos[0],
-            "token": token,
+            "data": ",".join(_data_),
+            "date": date,
+            "token": token_in,
         }
-        r = session.post(url, datas, cookies=cookies)
-        # print("+" * 10)
-        # print("get status:", r.request.headers)
+        r = session.post(url, datas, cookies=cookies, allow_redirects=False)
+
         received = r.text
-        # print(received)
         if r.status_code == 200 and "message" in received:
             received = json.loads(received)
-            token = received[0]["token"]
+            token_out = received[0]["token"]
             status = received[0]["message"]
             for item in status:
-                key, value = item["pian"], item["zt"]
-                res[key] = value
-    # print("return token:", token)
-    return res, token
+                key, value, note = item["pian"], item["zt"], item["note"]
+                res[key] = (value, note)
+
+    if not token_out and not refresh:
+        # 自更新，“表单验证失败，请重新返回提交”
+        # print("--" * 10, "自更新")
+        return get_status(infos, refresh=True)
+
+    if not token_out and not rand_refresh:
+        # 自更新无效，再出去转一下再回来
+        # print("--" * 13, "出去转一圈")
+        return get_status(infos, rand_refresh=True)
+
+    # 正常情况
+    return res, token_out
