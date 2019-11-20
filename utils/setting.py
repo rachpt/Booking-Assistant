@@ -131,30 +131,29 @@ class SettingPage(tk.Frame):
         self.label_pwd.place(
             x=160, y=top + (height + hspace), width=middle - 160, height=height
         )
-        self.label_browser.place(
-            x=190, y=top + (height + hspace) * 2, width=middle - 190, height=height
-        )
+        # self.label_browser.place(
+        #     x=190, y=top + (height + hspace) * 2, width=middle - 190, height=height
+        # )
 
         self.entry_id.place(x=middle, y=top, width=250, height=height)
         self.entry_pwd.place(
             x=middle, y=top + (height + hspace), width=250, height=height
         )
-        self.choose_firefox.place(
-            x=middle, y=top + (height + hspace) * 2, width=80, height=height
-        )
-        self.choose_chrome.place(
-            x=middle + 90, y=top + (height + hspace) * 2, width=80, height=height
-        )
-        if self.var_browser.get() == "Firefox":
-            self.choose_firefox.select()
-        elif self.var_browser.get() == "Chrome":
-            self.choose_chrome.select()
-        else:
-            self.choose_firefox.select()
+        # self.choose_firefox.place(
+        #     x=middle, y=top + (height + hspace) * 2, width=80, height=height
+        # )
+        # self.choose_chrome.place(
+        #     x=middle + 90, y=top + (height + hspace) * 2, width=80, height=height
+        # )
+        # if self.var_browser.get() == "Firefox":
+        #     self.choose_firefox.select()
+        # elif self.var_browser.get() == "Chrome":
+        #     self.choose_chrome.select()
+        # else:
+        #     self.choose_firefox.select()
 
         # if backend.is_win:
         if False:
-            # if True:
             self.label_browser_path.place(
                 x=190 - 70,
                 y=top + (height + hspace) * 3,
