@@ -20,8 +20,6 @@ class SettingPage(tk.Frame):
         self.is_checking.set(False)
         self.var_id = StringVar()
         self.var_pwd = StringVar()
-        self.var_browser = StringVar()
-        self.var_browser_path = StringVar()
 
         self.label_id = Label(self, text="学号：", anchor=E)
         self.label_pwd = Label(self, text="统一身份认证密码：", anchor=E)
@@ -144,8 +142,6 @@ class SettingPage(tk.Frame):
                 usrs_info = pickle.load(_file)
                 self.var_id.set(usrs_info["student_id"])
                 self.var_pwd.set(usrs_info["student_pwd"])
-                self.var_browser.set(usrs_info["browser"])
-                self.var_browser_path.set(usrs_info["browser_path"])
                 self.var_pa_name.set(usrs_info["pa_name"])
                 self.var_pa_num.set(usrs_info["pa_num"])
                 self.var_pa_pwd.set(usrs_info["pa_pwd"])
@@ -177,7 +173,7 @@ class SettingPage(tk.Frame):
             if auto and old_cookie:
                 # 旧配置 与 cookie 有效
                 self.controller.param_ok = True
-            if not old_cookie:
+            if not auto:
                 if not student_id and not student_pwd:
                     raise Warning("请输入学号与统一身份认证密码！")
                 if backend.force_update_cookie(user_info):
