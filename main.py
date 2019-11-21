@@ -2,24 +2,30 @@
 # -*- coding: utf-8 -*-
 # Author:rachpt
 
-import os
-import threading
-import socketserver
-import tkinter as tk
-from tkinter import messagebox
+from os import path, mkdir, listdir, remove
+from threading import Thread
+from tkinter import messagebox, Tk, Menu, Frame, PhotoImage
 
 from utils import status, setting, mannual
 
 
-class MainPage(tk.Tk):
+class MainPage(Tk):
+
+    PROC_PATH = path.abspath(path.realpath(__file__))
+    ROOT = path.dirname(PROC_PATH)
+    if not path.exists(path.join(ROOT, "config")):
+        mkdir(path.join(ROOT, "config"))
+    Config_Path = path.join(ROOT, "config/user_info.pickle")
+    Cookie_Path = path.join(ROOT, "config/cookie.pickle")
+
     def __init__(self, *args, **kwargs):
-        tk.Tk.__init__(self, *args, **kwargs)
+        Tk.__init__(self, *args, **kwargs)
 
         self.author = "rachpt"
         self.version = "v0.1.0"
         self.param_ok = False
         # self.is_checking = True
-        self.Ck = threading.Thread(target=self.check, args=())
+        self.Ck = Thread(target=self.check, args=())
 
         # 设置窗口大小
         self.X = self.winfo_screenwidth()
@@ -29,11 +35,12 @@ class MainPage(tk.Tk):
         )
         self.resizable(False, False)
         self.title("自动预定运动场地 - %s" % self.version)
-        try:
-            self.img_path = "./config/favicon.gif"
-            self.call("wm", "iconphoto", self._w, tk.PhotoImage(file=self.img_path))
-        except Exception:
-            pass
+        self.icon_path = path.join(self.ROOT, "config/favicon.gif")
+        if not path.isfile(self.icon_path):
+            from utils.pic import favicon_gif, get_pic
+
+            get_pic(favicon_gif, self.icon_path)
+        self.call("wm", "iconphoto", self._w, PhotoImage(file=self.icon_path))
         self.frames = {}
         self.create_page()
 
@@ -85,13 +92,13 @@ class MainPage(tk.Tk):
     def call_back(self):
         if messagebox.askokcancel("Quit", "退出后无法自动预定，确定退出程序?\n"):
             self.destroy()
-            for file_ in os.listdir():
-                _, ext = os.path.splitext(file_)
+            for file_ in listdir():
+                _, ext = path.splitext(file_)
                 if ext == ".log":
-                    os.remove(file_)
+                    remove(file_)
 
     def create_page(self):
-        container = tk.Frame(self)
+        container = Frame(self)
         container.pack(side="top", fill="both", expand=True)
         container.grid_rowconfigure(0, weight=1)
         container.grid_columnconfigure(0, weight=1)
@@ -108,20 +115,20 @@ class MainPage(tk.Tk):
             frame.grid(row=0, column=0, sticky="nsew")
 
         # 设置主菜单
-        menu = tk.Menu(self)
+        menu = Menu(self)
 
         # 设置子菜单
-        submenu = tk.Menu(menu, tearoff=0)
+        submenu = Menu(menu, tearoff=0)
         submenu.add_command(label="设置", command=self.settings)
         menu.add_cascade(label="设置", menu=submenu)
 
         # 预约子菜单
-        submenu = tk.Menu(menu, tearoff=0)
+        submenu = Menu(menu, tearoff=0)
         submenu.add_command(label="自动预约", command=self.auto_appointmant)
         menu.add_cascade(label="自动预约", menu=submenu)
 
         # 帮助子菜单
-        submenu = tk.Menu(menu, tearoff=0)
+        submenu = Menu(menu, tearoff=0)
         submenu.add_command(label="使用说明", command=self.how_to_use)
         submenu.add_command(label="关于", command=self.about)
         menu.add_cascade(label="帮助", menu=submenu)
