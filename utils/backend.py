@@ -2,21 +2,23 @@
 # -*- coding: utf-8 -*-
 # Author:rachpt
 
-import os
-import re
-import json
-import pickle
-import random
-import datetime
+from re import findall, search
+from json import loads
+from pickle import dump, load
+from random import randint
+from datetime import date, timedelta
 import requests
-from . import setting
-from . import login
+from requests import Session
+
+from .login import find_token as match_token
+from .login import get_hidden_form, get_new_cookie
+
 
 # 全局变量
-Config_Path = setting.Config_Path
-Cookie_Path = "config/cookie.pickle"
+# Config_Path = "config/user_info.pickle"
+# Cookie_Path = "config/cookie.pickle"
 Base_Url = "http://pecg.hust.edu.cn/"
-session = requests.Session()
+session = Session()
 cookies = {}
 headers = {
     "User-Agent": "Mozilla/5.0 (X11; Linux x86_64; rv:70.0) Gecko/20100101 Firefox/70.0",
@@ -26,7 +28,6 @@ headers = {
     "DNT": "1",
     "Connection": "keep-alive",
     "Upgrade-Insecure-Requests": "1",
-    # "Cache-Control": "max-age=0",
 }
 session.headers.update(headers)
 """时间格式
@@ -50,24 +51,14 @@ pian_status = {
 }
 
 
-def load_config():
+def load_config(Config_Path):
     res = {}
     try:
         with open(Config_Path, "rb") as _file:
-            res = pickle.load(_file)
+            res = load(_file)
     except KeyError:
         pass
     return res
-
-
-def match_token(html):
-    """参数 html 页面，返回 token"""
-    token = re.findall('"token[^,}]+', html)
-    if token:
-        token = re.search("([0-9a-z]{30,})", token[0])
-        if token:
-            token = token.group(1)
-    return token
 
 
 def check_cookie(cookies):
@@ -79,42 +70,49 @@ def check_cookie(cookies):
     url = Base_Url + "cggl/front/huiyuandetail"
     r = session.get(url, headers=headers, cookies=cookies, allow_redirects=False)
     if "退出" in r.text or r.status_code == 200:
-        token = match_token(r.text)
+        token = match_token(r)
         return True
     else:
         return False
 
 
-def force_update_cookie(infos):
+def force_update_cookie(Cookie_Path, infos, verify=False):
     """使用学号与统一认证密码更新cookie"""
     global cookies, session
+    if verify:
+        session.close()
+        session = Session()
     username = infos["student_id"]
     password = infos["student_pwd"]
     target_url = Base_Url + "cggl/index1"
-    cookies, token = login.get_new_cookie(session, username, password, target_url)
+    cookies = get_new_cookie(session, username, password, target_url)
     successed = check_cookie(cookies)
-    if successed:
-        with open(Cookie_Path, "wb") as _file:
-            pickle.dump(cookies, _file)
-        return True
-    return False
+    if not successed:
+        raise Exception("无法登录获取Cookie")
+    if verify:
+        _partner = add_partner(infos)
+        if not _partner:
+            raise Exception("同伴信息有误")
+    with open(Cookie_Path, "wb") as _file:
+        dump(cookies, _file)
+    return True
 
 
-def update_cookie():
+def update_cookie(Config_Path, Cookie_Path):
     """
     读取、验证、更新 cookie，返回并保存 至文件下次使用
     """
     cookies = ""
     try:
         with open(Cookie_Path, "rb") as _file:
-            cookies = pickle.load(_file)
+            cookies = load(_file)
             # 验证旧的 Cookie 是否有效
             if not check_cookie(cookies):
                 raise UserWarning("Cookie 无效")
     except (FileNotFoundError, UserWarning):
         try:
-            infos = load_config()
-            _ = force_update_cookie(infos)
+            infos = load_config(Config_Path)
+            _ = force_update_cookie(Cookie_Path, infos)
         except (FileNotFoundError, Exception):
             pass
     return cookies
@@ -124,20 +122,22 @@ def get_confirm_data(html):
     """获取预定确认表单数据"""
     data = {}
     pattern = r'input[^>]name[^>]+value[^>]+"'
-    infos = re.findall(pattern, html)
+    infos = findall(pattern, html)
     for item in infos:
-        name = re.search(r'name="([^"]+)"', item).group(1)
-        value = re.search(r'value="([^"]+)"', item).group(1)
+        name = search(r'name="([^"]+)"', item).group(1)
+        value = search(r'value="([^"]+)"', item).group(1)
         if name and value:
             data.update({name: value})
     return data
 
 
-def appointment(item, date, start_time, infos):
+def appointment(Config_Path, Cookie_Path, item, date, start_time, infos):
     """
     参数： 1.预约场地代号，2.预约日期，3.预约时间段开始点，4.同伴信息字典，返回  bool 值
     """
-    r, url2, cookies = step2_post_form(date, start_time, infos, item)
+    r, url2, cookies = step2_post_form(
+        Config_Path, Cookie_Path, date, start_time, infos, item
+    )
     # print("appoint: step2(第一次):", r.status_code, r.text)
     if r.status_code != 200:
         raise UserWarning(
@@ -145,7 +145,9 @@ def appointment(item, date, start_time, infos):
         )
     if "表单验证失败" in r.text:
         # 更新token，再试一次
-        r, url2, cookies = step2_post_form(date, start_time, infos, item)
+        r, url2, cookies = step2_post_form(
+            Config_Path, Cookie_Path, date, start_time, infos, item
+        )
         # print("appoint: step2:", r.status_code, r.text)
         if r.status_code != 200:
             raise UserWarning(
@@ -156,7 +158,7 @@ def appointment(item, date, start_time, infos):
     # 确认预定
     url3 = Base_Url + "cggl/front/step3"
     data3 = get_confirm_data(r.text)
-    token = match_token(r.text)
+    token = match_token(r)
     data3.update({"token": (token, token)})
     headers.update({"Referer": url2, "Origin": "http://pecg.hust.edu.cn"})
     print(data3)
@@ -171,17 +173,16 @@ def appointment(item, date, start_time, infos):
     return True if r.status_code == 200 else False
 
 
-def step2_post_form(date, start_time, infos, item):
+def step2_post_form(Config_Path, Cookie_Path, date, start_time, infos, item):
     """方法独立，方便重复调用"""
     global headers, cookies
-    cookies = update_cookie()
-    _, token = get_status([date, start_time])
+    cookies = update_cookie(Config_Path, Cookie_Path)
+    _, token = get_status(Config_Path, Cookie_Path, [date, start_time])
 
     url2 = Base_Url + "cggl/front/step2"
     data2 = {
         "starttime": start_time,
-        "endtime": str(int(re.search(r"(\d+):00:00", start_time).group(1)) + 2)
-        + ":00:00",
+        "endtime": str(int(search(r"(\d+):00:00", start_time).group(1)) + 2) + ":00:00",
         "partnerCardType": 1,
         "partnerName": infos["pa_name"],
         "partnerSchoolNo": infos["pa_num"],
@@ -202,15 +203,15 @@ def get_random_day_and_time(infos):
     days = []
     times = []
     for i in range(7):
-        _day = datetime.date.today() + datetime.timedelta(days=i)
+        _day = date.today() + timedelta(days=i)
         _day = _day.strftime("%Y-%m-%d")
         if _day != infos[0]:
             days.append(_day)
         _time = "{0:02d}:00:00".format(8 + 2 * i)
         if _time != infos[1]:
             times.append(_time)
-    day_ = days[random.randint(0, len(days) - 1)]
-    time_ = times[random.randint(0, len(times) - 1)]
+    day_ = days[randint(0, len(days) - 1)]
+    time_ = times[randint(0, len(times) - 1)]
     return (day_, time_)
 
 
@@ -227,7 +228,7 @@ def get_token_by_refresh(cookies, param):
     )
     r = session.get(tok_url, params=params, cookies=cookies, allow_redirects=False)
 
-    return tok_url, match_token(r.text)
+    return tok_url, match_token(r)
 
 
 def get_token_by_random_refresh(cookies, param):
@@ -249,7 +250,7 @@ def get_token_by_random_refresh(cookies, param):
     session.headers.update({"Referer": target_url})
     r = session.get(ref_url, params=params, cookies=cookies, allow_redirects=False)
 
-    return ref_url, match_token(r.text)
+    return ref_url, match_token(r)
 
 
 def get_token_normal(cookies, param=None):
@@ -271,10 +272,10 @@ def get_token_normal(cookies, param=None):
         tok_url = Base_Url + "cggl/front/yuyuexz"
         r = session.get(tok_url, cookies=cookies, allow_redirects=False)
         # print("token---->>2", r.status_code, r.request.headers.get("Referer"))
-    return tok_url, match_token(r.text)
+    return tok_url, match_token(r)
 
 
-def get_status(infos, refresh=False, rand_refresh=False):
+def get_status(Config_Path, Cookie_Path, infos, refresh=False, rand_refresh=False):
     """
     infos 为 日期(info[0]) 与 时间(info[1])，返回 场地状态信息字典
     """
@@ -282,7 +283,7 @@ def get_status(infos, refresh=False, rand_refresh=False):
     res = {}
     token_out = ""
 
-    cookies = update_cookie()
+    cookies = update_cookie(Config_Path, Cookie_Path)
     if rand_refresh:
         tok_url, token_in = get_token_by_random_refresh(cookies, infos)
     elif refresh:
@@ -303,7 +304,7 @@ def get_status(infos, refresh=False, rand_refresh=False):
         session.headers.update(header_patch)
 
         url = Base_Url + "cggl/front/ajax/getsyzt"
-        end_time = re.search(r"(\d+):00:00", start_time).group(1)
+        end_time = search(r"(\d+):00:00", start_time).group(1)
         end_time = int(end_time) + 2
         end_time = str(end_time) + ":00:00"
         _data_ = [
@@ -319,7 +320,7 @@ def get_status(infos, refresh=False, rand_refresh=False):
 
         received = r.text
         if r.status_code == 200 and "message" in received:
-            received = json.loads(received)
+            received = loads(received)
             token_out = received[0]["token"]
             status = received[0]["message"]
             for item in status:
@@ -329,12 +330,51 @@ def get_status(infos, refresh=False, rand_refresh=False):
     if not token_out and not refresh:
         # 自更新，“表单验证失败，请重新返回提交”
         # print("--" * 10, "自更新")
-        return get_status(infos, refresh=True)
+        return get_status(Config_Path, Cookie_Path, infos, refresh=True)
 
     if not token_out and not rand_refresh:
         # 自更新无效，再出去转一下再回来
         # print("--" * 13, "出去转一圈")
-        return get_status(infos, rand_refresh=True)
+        return get_status(Config_Path, Cookie_Path, infos, rand_refresh=True)
 
     # 正常情况
     return res, token_out
+
+
+def add_partner(infos):
+    """添加同伴信息"""
+    global cookies, session
+    add_url = Base_Url + "cggl/front/addPartner"
+    pa_name = infos["pa_name"]
+    pa_num = infos["pa_num"]
+    pa_pwd = infos["pa_pwd"]
+    datas = {
+        "partner_name": pa_name,
+        "partner_type": "1",
+        "partner_schoolno": pa_num,
+        "partner_passwd": pa_pwd,
+    }
+    data = have_partner(pa_name, pa_num)
+    datas.update(data)
+    r = session.post(add_url, data=datas, headers=headers, cookies=cookies)
+    return True if pa_name in r.text and pa_num in r.text else False
+
+
+def have_partner(pa_name, pa_num):
+    """删除已经添加的相同同伴，并返回表单数据"""
+    global cookies, session
+    data = {}
+    detail_url = Base_Url + "cggl/front/huiyuandetail"
+    del_url = Base_Url + "cggl/front/delPartner"
+    regx = r"'([\d]+)','{}','{}'".format(pa_name, pa_num)
+    r = session.get(detail_url, cookies=cookies, headers=headers)
+    id_pre = search(regx, r.text)
+    if id_pre:
+        id_pre = id_pre.group(1)
+        r = session.get(
+            del_url, params={"id": id_pre}, headers=headers, cookies=cookies
+        )
+    token = match_token(r)
+    data = get_hidden_form(r)
+    data.update({"token": (token, token)})
+    return data

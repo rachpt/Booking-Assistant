@@ -2,36 +2,63 @@
 # -*- coding: utf-8 -*-
 # Author:rachpt
 
-import pickle
-import tkinter as tk
-from tkinter import StringVar, Label, E, Button
-from tkinter.filedialog import askopenfilename
+from os import path
+from pickle import dump, load
+from re import match
+from tkinter import (
+    StringVar,
+    Label,
+    E,
+    W,
+    Button,
+    Frame,
+    BooleanVar,
+    Entry,
+    LabelFrame,
+    Label,
+    messagebox,
+    PhotoImage,
+)
 
-from . import backend
-
-Config_Path = "config/user_info.pickle"
+from .backend import update_cookie, force_update_cookie
 
 
-class SettingPage(tk.Frame):
+class SettingPage(Frame):
     def __init__(self, parent, controller):
-        tk.Frame.__init__(self, parent)
+        Frame.__init__(self, parent)
         self.controller = controller
-        self.is_checking = tk.BooleanVar()
+        self.is_checking = BooleanVar()
         self.is_checking.set(False)
         self.var_id = StringVar()
         self.var_pwd = StringVar()
+        self.ctrl_show_pwd = False
+        self.ctrl_show_pa_pwd = False
+        self.Config_Path = self.controller.Config_Path
+        self.Cookie_Path = self.controller.Cookie_Path
+        self.ROOT = self.controller.ROOT
 
+        logo_path = path.join(self.ROOT, "config/logo.gif")
+        print(path.isfile(logo_path))
+        if not path.isfile(logo_path):
+            from .pic import logo_gif, get_pic
+
+            get_pic(logo_gif, logo_path)
+        global logo_img
+        logo_img = PhotoImage(file=logo_path)
+        self.label_logo = Label(self, image=logo_img, width=237, height=80)
+        # except Exception:
+        #     pass
         self.label_id = Label(self, text="学号：", anchor=E)
         self.label_pwd = Label(self, text="统一身份认证密码：", anchor=E)
 
-        self.entry_id = tk.Entry(
+        self.entry_id = Entry(
             self,
             textvariable=self.var_id,
             width=60,
             borderwidth=3,
             font=("Helvetica", "10"),
         )
-        self.entry_pwd = tk.Entry(
+        self.entry_pwd = Entry(
             self,
             textvariable=self.var_pwd,
             width=60,
@@ -39,25 +66,31 @@ class SettingPage(tk.Frame):
             font=("Helvetica", "10"),
         )
         self.entry_pwd["show"] = "*"
+        self.entry_pwd_eye = Button(
+            self, bitmap="error", width=10, command=self.show_pwd
+        )
 
         self.button_login = Button(self, text="验证并保存", command=self.verification)
         self.button_checking = Button(
             self, text="正在后台验证用户，请稍等 ...", bg="LightGreen", fg="Red"
         )
 
-        self.frame = tk.LabelFrame(self, text="更多配置", height=200, width=200)
-        self.var_pa_name = tk.StringVar()
-        self.label_pa_name = tk.Label(self.frame, text="同伴姓名：", anchor=tk.W)
-        self.ertry_pa_name = tk.Entry(self.frame, textvariable=self.var_pa_name)
+        self.frame = LabelFrame(self, text="更多配置", height=200, width=200)
+        self.var_pa_name = StringVar()
+        self.label_pa_name = Label(self.frame, text="同伴姓名：", anchor=W)
+        self.ertry_pa_name = Entry(self.frame, textvariable=self.var_pa_name)
 
-        self.var_pa_num = tk.StringVar()
-        self.label_pa_num = tk.Label(self.frame, text="同伴学号：", anchor=tk.W)
-        self.ertry_pa_num = tk.Entry(self.frame, textvariable=self.var_pa_num)
+        self.var_pa_num = StringVar()
+        self.label_pa_num = Label(self.frame, text="同伴学号：", anchor=W)
+        self.ertry_pa_num = Entry(self.frame, textvariable=self.var_pa_num)
 
-        self.var_pa_pwd = tk.StringVar()
-        self.label_pa_pwd = tk.Label(self.frame, text="同伴场馆密码：", anchor=tk.W)
-        self.ertry_pa_pwd = tk.Entry(self.frame, textvariable=self.var_pa_pwd)
+        self.var_pa_pwd = StringVar()
+        self.label_pa_pwd = Label(self.frame, text="同伴场馆密码：", anchor=W)
+        self.ertry_pa_pwd = Entry(self.frame, textvariable=self.var_pa_pwd)
         self.ertry_pa_pwd["show"] = "*"
+        self.entry_pa_pwd_eye = Button(
+            self.frame, bitmap="error", width=10, command=self.show_partner_pwd
+        )
         self.label_notice = Label(
             self.frame, text="**该部分目前无法验证是否有效**", fg="red", font=("Helvetica", 12)
         )
@@ -65,7 +98,7 @@ class SettingPage(tk.Frame):
         self.create_page()
 
     def update_button_bar(self):
-        top = 50
+        top = 30
         height = 30
         hspace = 20
         middle = 270
@@ -94,19 +127,29 @@ class SettingPage(tk.Frame):
             self.button_checking.place_forget()
 
     def create_page(self):
-        top = 50
+        top = 30
         height = 30
         hspace = 20
         middle = 270
+        logo_h = 80
+        logo_w = 237
 
-        self.label_id.place(x=190, y=top, width=middle - 190, height=height)
+        self.label_logo.place(x=(750 - logo_w) / 2, y=0, width=logo_w, height=logo_h)
+
+        self.label_id.place(x=190, y=top + logo_h, width=middle - 190, height=height)
         self.label_pwd.place(
-            x=160, y=top + (height + hspace), width=middle - 160, height=height
+            x=160, y=top + logo_h + (height + hspace), width=middle - 160, height=height
         )
 
-        self.entry_id.place(x=middle, y=top, width=250, height=height)
+        self.entry_id.place(x=middle, y=top + logo_h, width=250, height=height)
         self.entry_pwd.place(
-            x=middle, y=top + (height + hspace), width=250, height=height
+            x=middle, y=top + logo_h + (height + hspace), width=230, height=height
+        )
+        self.entry_pwd_eye.place(
+            x=middle + 220,
+            y=top + logo_h + (height + hspace),
+            width=height,
+            height=height,
         )
 
         f_x = 30
@@ -128,18 +171,24 @@ class SettingPage(tk.Frame):
         )
         self.label_pa_pwd.place(x=f_x, y=f_y * 2 + height, width=f_w1, height=height)
         self.ertry_pa_pwd.place(
-            x=f_x + f_w1, y=f_y * 2 + height, width=f_w2, height=height
+            x=f_x + f_w1, y=f_y * 2 + height, width=f_w2 - height, height=height
         )
-        self.label_notice.place(
-            x=f_x + f_w1 + f_w2 + f_spx,
-            y=f_y * 2 + height - 5,
-            width=f_w1 + f_w2,
-            height=height + 10,
+        self.entry_pa_pwd_eye.place(
+            x=f_x + f_w1 + f_w2 - height,
+            y=f_y * 2 + height,
+            width=height,
+            height=height,
         )
+        # self.label_notice.place(
+        #     x=f_x + f_w1 + f_w2 + f_spx,
+        #     y=f_y * 2 + height - 5,
+        #     width=f_w1 + f_w2,
+        #     height=height + 10,
+        # )
         self.update_button_bar()
         try:
-            with open(Config_Path, "rb") as _file:
-                usrs_info = pickle.load(_file)
+            with open(self.Config_Path, "rb") as _file:
+                usrs_info = load(_file)
                 self.var_id.set(usrs_info["student_id"])
                 self.var_pwd.set(usrs_info["student_pwd"])
                 self.var_pa_name.set(usrs_info["pa_name"])
@@ -169,26 +218,53 @@ class SettingPage(tk.Frame):
                 "param_ok": param_ok,
             }
             # print(user_info)
-            old_cookie = backend.update_cookie()
+            old_cookie = update_cookie(self.Config_Path, self.Cookie_Path)
             if auto and old_cookie:
                 # 旧配置 与 cookie 有效
                 self.controller.param_ok = True
             if not auto:
-                if not student_id and not student_pwd:
-                    raise Warning("请输入学号与统一身份认证密码！")
-                if backend.force_update_cookie(user_info):
+                if pa_num:
+                    match_pa_num = match(r"^\w20[\d]{7}$", pa_num)
+                    if not match_pa_num:
+                        raise Exception("同伴学号格式不对！")
+                if not student_id:
+                    raise Exception("请输入学号！")
+                else:
+                    # 匹配学号
+                    _match = match(r"^\w20[\d]{7}$", student_id)
+                    if not _match:
+                        raise Exception("学号格式不对！")
+                if not student_pwd:
+                    raise Warning("请输入统一身份认证密码！")
+                if force_update_cookie(self.Cookie_Path, user_info, verify=True):
                     self.controller.param_ok = True
-                    with open(Config_Path, "wb") as _file:
-                        pickle.dump(user_info, _file)
+                    with open(self.Config_Path, "wb") as _file:
+                        dump(user_info, _file)
                 else:
                     raise RuntimeError("登录失败！")
         except Warning:
             pass
         except Exception as exc:
-            tk.messagebox.showerror("Error", "--" * 28 + "\n身份验证失败：%s" % exc)
+            messagebox.showerror("Error", "--" * 28 + "\n身份验证失败：%s" % exc)
         else:
-            # tk.messagebox.showinfo('提示', '--'*28+'\n   =_=用户信息配置有效=_=   ')
+            # messagebox.showinfo('提示', '--'*28+'\n   =_=用户信息配置有效=_=   ')
             self.controller.show_frame("RunPage")
         if auto:
             self.is_checking.set(False)
             self.update_button_bar()
+
+    def show_pwd(self):
+        if self.ctrl_show_pwd:
+            self.ctrl_show_pwd = False
+            self.entry_pwd.configure(show="")
+        else:
+            self.ctrl_show_pwd = True
+            self.entry_pwd.configure(show="*")
+
+    def show_partner_pwd(self):
+        if self.ctrl_show_pa_pwd:
+            self.ctrl_show_pa_pwd = False
+            self.ertry_pa_pwd.configure(show="")
+        else:
+            self.ctrl_show_pa_pwd = True
+            self.ertry_pa_pwd.configure(show="*")

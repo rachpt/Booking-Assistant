@@ -2,35 +2,48 @@
 # -*- coding: utf-8 -*-
 # Author:rachpt
 
-import threading
-import datetime
-import time
-import random
-from tkinter import StringVar, E, W, Label, Button, Radiobutton
-from tkinter import messagebox
-import tkinter as tk
-from time import sleep
+from random import random
+from threading import Thread
+from datetime import datetime, date, timedelta
+from time import sleep, strftime, localtime
+from tkinter import (
+    StringVar,
+    E,
+    W,
+    Label,
+    Button,
+    Radiobutton,
+    Frame,
+    IntVar,
+    LabelFrame,
+    DISABLED,
+    ACTIVE,
+    NORMAL,
+    messagebox,
+)
 from . import backend
 from . import mymessage
 
 
-class RunPage(tk.Frame):
+class RunPage(Frame):
     def __init__(self, parent, controller):
-        tk.Frame.__init__(self, parent)
+        Frame.__init__(self, parent)
         self.controller = controller
         self.reserve_time = StringVar()
         self.reserve_date = StringVar()
         self.success = StringVar()
         self.success.set("No")
-        self.counter = tk.IntVar()
+        self.counter = IntVar()
         self.counter.set(0)
-        self.run_flag = tk.IntVar()
+        self.run_flag = IntVar()
         self.run_flag.set(0)
         self.T = {}
         self.message_count_down = False
         self.show_notice = True
         self.successed_info = []
-        self.frame_1 = tk.LabelFrame(
+        self.Config_Path = self.controller.Config_Path
+        self.Cookie_Path = self.controller.Cookie_Path
+        self.frame_1 = LabelFrame(
             self, text="选择预定日期与开始时间（点击自动选择并查询）", height=100, width=630
         )
 
@@ -38,7 +51,7 @@ class RunPage(tk.Frame):
         self.choose_days = {}
         for i in range(7):
             self.days[i] = StringVar()
-            _day = datetime.date.today() + datetime.timedelta(days=i)
+            _day = date.today() + timedelta(days=i)
             _day = _day.strftime("%Y-%m-%d")
             self.days[i].set(_day)
             self.choose_days[i] = Radiobutton(
@@ -63,7 +76,7 @@ class RunPage(tk.Frame):
                 command=self.set_reserve_time,
             )
         # -------------------
-        self.frame_2 = tk.LabelFrame(self, height=150, width=630)
+        self.frame_2 = LabelFrame(self, height=150, width=630)
         self.label_date_1 = Label(self.frame_2, text="预定日期：", anchor=E)
         self.label_date_2 = Label(
             self.frame_2, textvariable=self.reserve_date, anchor=W
@@ -82,7 +95,7 @@ class RunPage(tk.Frame):
         self.button_stop = Button(
             self.frame_2,
             text="结束",
-            state=tk.DISABLED,
+            state=DISABLED,
             bg="LightGray",
             command=self.stop_job,
         )
@@ -93,12 +106,12 @@ class RunPage(tk.Frame):
         self.label_sucessed_place = Label(self.frame_2, text="预定成功的场地：", anchor=E)
         self.label_successed_place_info = Label(self.frame_2)
         # -------------------
-        self.frame_3 = tk.LabelFrame(self, text="场地状态", height=600, width=630)
+        self.frame_3 = LabelFrame(self, text="场地状态", height=600, width=630)
 
         self.courts = {}
         self.show_courts = {}
         for i in range(8):
-            self.courts[i] = tk.IntVar()
+            self.courts[i] = IntVar()
             self.courts[i].set("")
             self.show_courts[i] = Button(
                 self.frame_3, font=("Helvetica 10"), text="{}号场地".format(i + 1),
@@ -182,9 +195,9 @@ class RunPage(tk.Frame):
     def judge_time(self):
         target_time = "08:00"  # 系统开放时间
         delta_time = 2
-        current_time = time.strftime("%H:%M", time.localtime())
-        d1_ = datetime.datetime.strptime(target_time, "%H:%M")
-        d2_ = datetime.datetime.strptime(current_time, "%H:%M")
+        current_time = strftime("%H:%M", localtime())
+        d1_ = datetime.strptime(target_time, "%H:%M")
+        d2_ = datetime.strptime(current_time, "%H:%M")
         if target_time >= current_time:
             time_diff = (d1_ - d2_).seconds / 60
         else:
@@ -193,7 +206,7 @@ class RunPage(tk.Frame):
 
     def job(self):
         i = 1
-        infos = backend.load_config()
+        infos = backend.load_config(self.Config_Path)
         while True:
             if self.run_flag.get() == 0:
                 break
@@ -215,16 +228,14 @@ class RunPage(tk.Frame):
         if self.run_flag.get() == 0 and self.success.get() == "No":
             self.run_flag.set(1)
             for i in range(7):
-                self.choose_days[i].config(state=tk.DISABLED)
-                self.choose_times[i].config(state=tk.DISABLED)
+                self.choose_days[i].config(state=DISABLED)
+                self.choose_times[i].config(state=DISABLED)
             self.button_start.configure(
-                bg="LightGray", state=tk.ACTIVE, text="正在运行 ...", fg="Green"
+                bg="LightGray", state=ACTIVE, text="正在运行 ...", fg="Green"
             )
-            self.button_stop.configure(
-                bg="Tomato", state=tk.NORMAL, text="结束", fg="Black"
-            )
-            ct = int(random.random() * 10000)
-            self.T[ct] = threading.Thread(target=self.job, args=())
+            self.button_stop.configure(bg="Tomato", state=NORMAL, text="结束", fg="Black")
+            ct = int(random() * 10000)
+            self.T[ct] = Thread(target=self.job, args=())
             self.T[ct].daemon = True
             self.T[ct].start()
 
@@ -237,13 +248,11 @@ class RunPage(tk.Frame):
         if self.run_flag.get() == 1:
             self.run_flag.set(0)
             for i in range(7):
-                self.choose_days[i].config(state=tk.NORMAL)
-                self.choose_times[i].config(state=tk.NORMAL)
-            self.button_stop.configure(
-                bg="Gray", state=tk.ACTIVE, text="已经停止", fg="White"
-            )
+                self.choose_days[i].config(state=NORMAL)
+                self.choose_times[i].config(state=NORMAL)
+            self.button_stop.configure(bg="Gray", state=ACTIVE, text="已经停止", fg="White")
             self.button_start.configure(
-                bg="SpringGreen", state=tk.NORMAL, text="开始监控", fg="Black"
+                bg="SpringGreen", state=NORMAL, text="开始监控", fg="Black"
             )
         else:
             messagebox.showinfo("提示", "   =_=当前没有后台监控任务=_=   \n\n   不要重复点击!   \n   ")
@@ -255,7 +264,9 @@ class RunPage(tk.Frame):
         if _date and _time:
             res = {}
             court = backend.pian_status
-            res, _ = backend.get_status((_date, _time))
+            res, _ = backend.get_status(
+                self.Config_Path, self.Cookie_Path, (_date, _time)
+            )
             # print(res)
             for key in res.keys():
                 # 2：已预约；4：不开放；1：可预约；3：使用中；5：预约中，''：不可预约
@@ -334,7 +345,9 @@ class RunPage(tk.Frame):
             if self.run_flag.get() == 1:
                 try:
                     sleep(1)
-                    is_ok = backend.appointment(key, _date, _time, infos)
+                    is_ok = backend.appointment(
+                        self.Config_Path, self.Cookie_Path, key, _date, _time, infos
+                    )
                 except UserWarning as UW:
                     msg = (
                         "-" * 28
