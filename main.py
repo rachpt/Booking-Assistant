@@ -22,7 +22,7 @@ class MainPage(Tk):
         Tk.__init__(self, *args, **kwargs)
 
         self.author = "rachpt"
-        self.version = "v0.1.0"
+        self.version = "v0.2.1"
         self.param_ok = False
         # self.is_checking = True
         self.Ck = Thread(target=self.check, args=())
@@ -86,7 +86,7 @@ class MainPage(Tk):
                 author=self.author, version=self.version
             )
             + "\nLICENSE：MIT 许可证"
-            + "\n\n更新日期：2019.11.20",
+            + "\n\n更新日期：2019.11.29",
         )
 
     def call_back(self):
