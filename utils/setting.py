@@ -9,7 +9,6 @@ from tkinter import (
     StringVar,
     Label,
     E,
-    W,
     Button,
     Frame,
     BooleanVar,
@@ -76,23 +75,26 @@ class SettingPage(Frame):
 
         self.frame = LabelFrame(self, text="更多配置", height=200, width=200)
         self.var_pa_name = StringVar()
-        self.label_pa_name = Label(self.frame, text="同伴姓名：", anchor=W)
+        self.label_pa_name = Label(self.frame, text="同伴姓名：", anchor=E)
         self.ertry_pa_name = Entry(self.frame, textvariable=self.var_pa_name)
 
         self.var_pa_num = StringVar()
-        self.label_pa_num = Label(self.frame, text="同伴学号：", anchor=W)
+        self.label_pa_num = Label(self.frame, text="同伴学号：", anchor=E)
         self.ertry_pa_num = Entry(self.frame, textvariable=self.var_pa_num)
 
         self.var_pa_pwd = StringVar()
-        self.label_pa_pwd = Label(self.frame, text="同伴场馆密码：", anchor=W)
+        self.label_pa_pwd = Label(self.frame, text="同伴场馆密码：", anchor=E)
         self.ertry_pa_pwd = Entry(self.frame, textvariable=self.var_pa_pwd)
         self.ertry_pa_pwd["show"] = "*"
         self.entry_pa_pwd_eye = Button(
             self.frame, bitmap="error", width=10, command=self.show_partner_pwd
         )
-        self.label_notice = Label(
-            self.frame, text="**该部分目前无法验证是否有效**", fg="red", font=("Helvetica", 12)
-        )
+
+        self.var_sort = StringVar()
+        self.place_sort_prompt = "1至8，空格分割"
+        self.var_sort.set(self.place_sort_prompt)
+        self.label_sort = Label(self.frame, text="预定顺序：", anchor=E)
+        self.entry_sort = Entry(self.frame, textvariable=self.var_sort)
 
         self.create_page()
 
@@ -178,12 +180,19 @@ class SettingPage(Frame):
             width=height,
             height=height,
         )
-        # self.label_notice.place(
-        #     x=f_x + f_w1 + f_w2 + f_spx,
-        #     y=f_y * 2 + height - 5,
-        #     width=f_w1 + f_w2,
-        #     height=height + 10,
-        # )
+        self.label_sort.place(
+            x=f_x + f_w1 + f_w2 + f_spx, y=f_y * 2 + height, width=f_w1, height=height
+        )
+        self.entry_sort.place(
+            x=f_x + f_w1 * 2 + f_w2 + f_spx,
+            y=f_y * 2 + height,
+            width=f_w2,
+            height=height,
+        )
+        self.entry_sort.bind("<FocusIn>", self.place_sort_click)
+        self.entry_sort.bind("<FocusOut>", self.place_sort_out)
+        self.entry_sort.config(fg="grey")
+
         self.update_button_bar()
         try:
             with open(self.Config_Path, "rb") as _file:
@@ -193,8 +202,19 @@ class SettingPage(Frame):
                 self.var_pa_name.set(usrs_info["pa_name"])
                 self.var_pa_num.set(usrs_info["pa_num"])
                 self.var_pa_pwd.set(usrs_info["pa_pwd"])
-        except FileNotFoundError:
+                self.var_sort.set(usrs_info["place_sort"])
+        except (FileNotFoundError, KeyError):
             pass
+
+    def place_sort_click(self, event):
+        if self.var_sort.get() == self.place_sort_prompt:
+            self.var_sort.set("")
+            self.entry_sort.config(fg="black")
+
+    def place_sort_out(self, enent):
+        if self.var_sort.get() == "":
+            self.var_sort.set(self.place_sort_prompt)
+            self.entry_sort.config(fg="grey")
 
     def verification(self, auto=False):
         if auto:
@@ -207,6 +227,9 @@ class SettingPage(Frame):
             pa_num = self.var_pa_num.get()
             pa_pwd = self.var_pa_pwd.get()
             param_ok = self.controller.param_ok
+            place_sort = self.var_sort.get().strip()
+            if place_sort == self.place_sort_prompt:
+                place_sort = ""
 
             user_info = {
                 "student_id": student_id,
@@ -214,6 +237,7 @@ class SettingPage(Frame):
                 "pa_name": pa_name,
                 "pa_num": pa_num,
                 "pa_pwd": pa_pwd,
+                "place_sort": place_sort,
                 "param_ok": param_ok,
             }
             # print(user_info)

@@ -204,7 +204,7 @@ class RunPage(Frame):
                 if backend.judge_time():
                     dt = 2
                 else:
-                    dt = 30
+                    dt = 20
                 self.update_status(True, infos, dt)
             else:
                 dt = 40
@@ -224,6 +224,7 @@ class RunPage(Frame):
                 bg="LightGray", state=ACTIVE, text="正在运行 ...", fg="Green"
             )
             self.button_stop.configure(bg="Tomato", state=NORMAL, text="结束", fg="Black")
+            # sort_place_order(self.controller)
             ct = int(random() * 10000)
             self.T[ct] = Thread(target=self.job, args=())
             self.T[ct].daemon = True
@@ -257,8 +258,11 @@ class RunPage(Frame):
             res, _ = backend.get_status(
                 self.Config_Path, self.Cookie_Path, (_date, _time)
             )
-            # print(res)
-            for key in res.keys():
+            if infos and infos["place_sort"]:
+                sorted_keys = sort_place_order(court, infos["place_sort"])
+            else:
+                sorted_keys = res.keys()
+            for key in sorted_keys:
                 # 2：已预约；4：不开放；1：可预约；3：使用中；5：预约中，''：不可预约
                 ii = int(court[key])
                 res_status = res[key][0]
@@ -429,3 +433,20 @@ class RunPage(Frame):
         else:
             self.show_notice = True
             self.button_notice.configure(text="是", bg="Pink")
+
+
+def sort_place_order(place_dict, order_str):
+    if order_str:
+        reversed_place_dict = {v: k for k, v in place_dict.items()}
+        ret_list = []
+        order_str_list = order_str.split()
+        for i in order_str_list:
+            if "0" <= i <= "8":
+                ret_list.append(reversed_place_dict[str(i)])
+        # 补全
+        for i in range(1, 9):
+            if str(i) not in order_str_list:
+                ret_list.append(reversed_place_dict[str(i)])
+        return ret_list
+    else:
+        return place_dict.keys()
