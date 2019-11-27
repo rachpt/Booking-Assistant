@@ -4,7 +4,7 @@
 
 from random import random
 from threading import Thread
-from datetime import datetime, date, timedelta
+from datetime import date, timedelta
 from time import sleep, strftime, localtime
 from tkinter import (
     StringVar,
@@ -192,37 +192,27 @@ class RunPage(Frame):
                 background="LightGray", highlightbackground="Gold", foreground="Black"
             )
 
-    def judge_time(self):
-        target_time = "08:00"  # 系统开放时间
-        delta_time = 2
-        current_time = strftime("%H:%M", localtime())
-        d1_ = datetime.strptime(target_time, "%H:%M")
-        d2_ = datetime.strptime(current_time, "%H:%M")
-        if target_time >= current_time:
-            time_diff = (d1_ - d2_).seconds / 60
-        else:
-            time_diff = (d2_ - d1_).seconds / 60
-        return True if time_diff <= delta_time else False
-
     def job(self):
+        _st = "07:59:30"  # 开始时间
+        _end = "22:00:00"  # 结束时间
         i = 1
         infos = backend.load_config(self.Config_Path)
         while True:
             if self.run_flag.get() == 0:
                 break
-            else:
-                self.counter.set(i)
-                if self.judge_time():
+            elif _st <= strftime("%H:%M:%S", localtime()) < _end:
+                if backend.judge_time():
                     dt = 2
-                    if i != 1:
-                        sleep(dt)
                 else:
                     dt = 30
-                    if i != 1:
-                        sleep(dt)
-                    self.update_status(True, infos, dt)
-                self.couner_num.configure(textvariable=self.counter)
-                i += 1
+                self.update_status(True, infos, dt)
+            else:
+                dt = 40
+                self.update_status(False, infos, dt)
+            sleep(dt)
+            self.counter.set(i)
+            self.couner_num.configure(textvariable=self.counter)
+            i += 1
 
     def start_job(self):
         if self.run_flag.get() == 0 and self.success.get() == "No":

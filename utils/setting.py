@@ -38,7 +38,6 @@ class SettingPage(Frame):
         self.ROOT = self.controller.ROOT
 
         logo_path = path.join(self.ROOT, "config/logo.gif")
-        print(path.isfile(logo_path))
         if not path.isfile(logo_path):
             from .pic import logo_gif, get_pic
 

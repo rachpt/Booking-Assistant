@@ -6,7 +6,8 @@ from re import findall, search
 from json import loads
 from pickle import dump, load
 from random import randint
-from datetime import date, timedelta
+from datetime import date, timedelta, datetime
+from time import sleep, strftime, localtime
 import requests
 from requests import Session
 
@@ -49,6 +50,19 @@ pian_status = {
     "295": "2",
     "296": "3",
 }
+
+
+def judge_time(delta_time=30):
+    """参数：与目标时间(8点)之差，单位秒；返回布尔值"""
+    target_time = "08:00:00"  # 系统开放时间
+    current_time = strftime("%H:%M:%S", localtime())
+    d1_ = datetime.strptime(target_time, "%H:%M:%S")
+    d2_ = datetime.strptime(current_time, "%H:%M:%S")
+    if target_time >= current_time:
+        time_diff = (d1_ - d2_).seconds
+    else:
+        time_diff = (d2_ - d1_).seconds
+    return True if time_diff <= delta_time else False
 
 
 def load_config(Config_Path):
@@ -161,7 +175,12 @@ def appointment(Config_Path, Cookie_Path, item, date, start_time, infos):
     token = match_token(r)
     data3.update({"token": (token, token)})
     headers.update({"Referer": url2, "Origin": "http://pecg.hust.edu.cn"})
-    print(data3)
+    # print(data3)
+    # 开放系统前等待
+    if judge_time():
+        while strftime("%H:%M:%S", localtime()) <= "08:00:00":
+            sleep(1)
+
     # 调试代码
     # if False:
     if True:
