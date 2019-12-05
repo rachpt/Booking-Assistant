@@ -106,7 +106,7 @@ class RunPage(Frame):
         self.label_sucessed_place = Label(self.frame_2, text="预定成功的场地：", anchor=E)
         self.label_successed_place_info = Label(self.frame_2)
         # -------------------
-        self.frame_3 = LabelFrame(self, text="场地状态", height=600, width=630)
+        self.frame_3 = LabelFrame(self, text="场地状态（点击刷新）", height=600, width=630)
 
         self.courts = {}
         self.show_courts = {}
@@ -114,7 +114,7 @@ class RunPage(Frame):
             self.courts[i] = IntVar()
             self.courts[i].set("")
             self.show_courts[i] = Button(
-                self.frame_3, font=("Helvetica 10"), text="{}号场地".format(i + 1),
+                self.frame_3, font=("Helvetica 10"), text="{}号场地".format(i + 1), command=self.update_status,
             )
 
         self.create_page()
@@ -248,8 +248,8 @@ class RunPage(Frame):
         else:
             messagebox.showinfo("提示", "   =_=当前没有后台监控任务=_=   \n\n   不要重复点击!   \n   ")
 
-    def update_status(self, doit=False, infos=None, dt=0):
-        """doit 预定 flag，infos 同伴信息，dt 睡眠时间，秒。"""
+    def update_status(self, doit=False, infos=None, dt=0, mark=True):
+        """doit 预定 flag，infos 同伴信息，dt 睡眠时间，秒；mark 用于防止递归。"""
         _date = self.reserve_date.get()
         _time = self.reserve_time.get()
         if _date and _time:
@@ -320,7 +320,8 @@ class RunPage(Frame):
                         foreground="Gold",
                         font=("Helvetica 10"),
                     )
-            self.mark_successed_place(court, _date, _time)
+            if mark:
+                self.mark_successed_place(court, _date, _time)
             if doit and infos:
                 # print(res.values())
                 if res and (1, "") not in res.values():
@@ -363,28 +364,8 @@ class RunPage(Frame):
 
             if is_ok:
                 self.success.set("Yes")
-                self.is_sucessed.configure(
-                    textvariable=self.success, bg="LightGray", fg="Magenta"
-                )
                 self.successed_info = [key, _date, _time]
                 self.stop_job()  # 退出线程
-                success_text = str(ii) + "号 " + _date + " " + _time
-                self.label_successed_place_info.configure(
-                    fg="Magenta", text=success_text
-                )
-                self.label_sucessed_place.place(
-                    x=20 + 200, y=20 * 3 + 28 * 2, width=180, height=28
-                )
-                self.label_successed_place_info.place(
-                    x=20 + 380, y=20 * 3 + 28 * 2, width=200, height=28
-                )
-                self.show_courts[ii - 1].configure(
-                    text="{}号场地\n程序预约了该场地".format(ii),
-                    background="Magenta",
-                    highlightbackground="Green",
-                    foreground="White",
-                    font=("Helvetica 10"),
-                )
             else:
                 self.show_courts[ii - 1].configure(
                     text="{}号场地\n尝试预约，已失败".format(ii),
@@ -410,15 +391,37 @@ class RunPage(Frame):
             and _date == self.successed_info[1]
             and _time == self.successed_info[2]
         ):
+            # 更新场地状态，如果显示已被预定，就表示成功预定该场地。
+            self.update_status(mark=False)
+            res, _ = backend.get_status(self.Config_Path, self.Cookie_Path, (_date, _time))
             key = self.successed_info[0]
-            ii = int(court[key])
-            self.show_courts[ii - 1].configure(
-                text="{}号场地\n程序预约了该场地".format(ii),
-                background="Magenta",
-                highlightbackground="Green",
-                foreground="White",
-                font=("Helvetica 10"),
-            )
+            if res[key][0] == 2:
+                ii = int(court[key])
+                # 高亮 成功 YES
+                self.is_sucessed.configure(
+                    textvariable=self.success, bg="LightGray", fg="Magenta"
+                )
+                # 显示预定信息
+                success_text = str(ii) + "号 " + _date + " " + _time
+                self.label_successed_place_info.configure(
+                    fg="Magenta", text=success_text
+                )
+                self.label_sucessed_place.place(
+                    x=20 + 200, y=20 * 3 + 28 * 2, width=180, height=28
+                )
+                self.label_successed_place_info.place(
+                    x=20 + 380, y=20 * 3 + 28 * 2, width=200, height=28
+                )
+                self.show_courts[ii - 1].configure(
+                    text="{}号场地\n程序预约了该场地".format(ii),
+                    background="Magenta",
+                    highlightbackground="Green",
+                    foreground="White",
+                    font=("Helvetica 10"),
+                )
+            else:
+                self.successed_info = []
+                self.success.set("No")
 
     def set_reserve_date(self):
         self.update_status()
@@ -445,8 +448,9 @@ def sort_place_order(place_dict, order_str):
                 ret_list.append(reversed_place_dict[str(i)])
         # 补全
         for i in range(1, 9):
-            if str(i) not in order_str_list:
-                ret_list.append(reversed_place_dict[str(i)])
+            i = str(i)
+            if i not in order_str_list:
+                ret_list.append(reversed_place_dict[i])
         return ret_list
     else:
         return place_dict.keys()
