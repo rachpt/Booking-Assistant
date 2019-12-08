@@ -4,6 +4,7 @@
 
 from random import random
 from threading import Thread
+from functools import partial
 from datetime import date, timedelta
 from time import sleep, strftime, localtime
 from tkinter import (
@@ -46,12 +47,13 @@ class RunPage(Frame):
         self.frame_1 = LabelFrame(
             self, text="选择预定日期与开始时间（点击自动选择并查询）", height=100, width=630
         )
-
+        self.day = 0
         self.days = {}
         self.choose_days = {}
         for i in range(7):
+            _today = date.today()
             self.days[i] = StringVar()
-            _day = date.today() + timedelta(days=i)
+            _day = _today + timedelta(days=i)
             _day = _day.strftime("%Y-%m-%d")
             self.days[i].set(_day)
             self.choose_days[i] = Radiobutton(
@@ -59,7 +61,7 @@ class RunPage(Frame):
                 text=self.days[i].get(),
                 variable=self.reserve_date,
                 value=self.days[i].get(),
-                command=self.set_reserve_date,
+                command=partial(self.set_reserve_date, i),
             )
 
         self.times = {}
@@ -114,7 +116,10 @@ class RunPage(Frame):
             self.courts[i] = IntVar()
             self.courts[i].set("")
             self.show_courts[i] = Button(
-                self.frame_3, font=("Helvetica 10"), text="{}号场地".format(i + 1), command=self.update_status,
+                self.frame_3,
+                font=("Helvetica 10"),
+                text="{}号场地".format(i + 1),
+                command=self.update_status,
             )
 
         self.create_page()
@@ -137,6 +142,7 @@ class RunPage(Frame):
             )
         if not self.reserve_date.get():
             self.choose_days[2].select()
+            self.day = 2
         if not self.reserve_time.get():
             self.choose_times[6].select()
         self.frame_2.place(
@@ -323,44 +329,41 @@ class RunPage(Frame):
             if mark:
                 self.mark_successed_place(court, _date, _time)
             if doit and infos:
-                # print(res.values())
-                if res and (1, "") not in res.values():
+                # 没有可预定或正在预定的场地，则退出预定
+                if res and (1, "") not in res.values() and (5, "") not in res.values():
                     self.stop_job()  # 退出线程
                     messagebox.showinfo(
                         "提示",
-                        "--" * 28
+                        "-" * 20
                         + "\n   =_=没有可预约的场地=_=   \n\n   请选择其他时间和日期的场地预约!   \n   ",
                     )
 
     def try_to_reverse(self, doit, infos, key, ii, _date, _time, dt):
         """尝试预定单个场地"""
-        if doit and infos and self.success.get() != "Yes":
+        if doit and infos and self.success.get() != "Yes" and self.run_flag.get() == 1:
             is_ok = False
-            # 还在运行才尝试
-            if self.run_flag.get() == 1:
-                try:
-                    sleep(1)
-                    is_ok = backend.appointment(
-                        self.Config_Path, self.Cookie_Path, key, _date, _time, infos
-                    )
-                except UserWarning as UW:
-                    msg = (
-                        "-" * 28
-                        + "\n{}\n".format(UW)
-                        + "-" * 28
-                        + "\n{}秒后重试".format(dt),
-                    )
-                    if not self.message_count_down and self.show_notice:
-                        mymessage.CountDownMessageBox(self, msg)
-                except Warning as War:
-                    msg = (
-                        "--" * 28
-                        + "\n返回码 与 返回信息\n{}\n".format(War)
-                        + "--" * 28
-                        + "\n{}秒后重试".format(dt),
-                    )
-                    if self.show_notice:
-                        messagebox.showerror("警告", msg)
+            try:
+                sleep(1)
+                is_ok = backend.appointment(
+                    self.Config_Path,
+                    self.Cookie_Path,
+                    key,
+                    _date,
+                    _time,
+                    infos,
+                    self.day,
+                )
+            except UserWarning as UW:
+                msg = (
+                    "-" * 20 + "\n{}\n".format(UW) + "-" * 20 + "\n{}秒后重试".format(dt),
+                )
+                if not self.message_count_down and self.show_notice:
+                    mymessage.CountDownMessageBox(self, msg)
+            except Warning as War:
+                self.stop_job()  # 退出线程
+                msg = "-" * 20 + "\n错误信息：\n{}\n".format(War) + "-" * 20
+                if self.show_notice:
+                    messagebox.showerror("发生错误", msg)
 
             if is_ok:
                 self.success.set("Yes")
@@ -393,7 +396,9 @@ class RunPage(Frame):
         ):
             # 更新场地状态，如果显示已被预定，就表示成功预定该场地。
             self.update_status(mark=False)
-            res, _ = backend.get_status(self.Config_Path, self.Cookie_Path, (_date, _time))
+            res, _ = backend.get_status(
+                self.Config_Path, self.Cookie_Path, (_date, _time)
+            )
             key = self.successed_info[0]
             if res[key][0] == 2:
                 ii = int(court[key])
@@ -423,8 +428,9 @@ class RunPage(Frame):
                 self.successed_info = []
                 self.success.set("No")
 
-    def set_reserve_date(self):
+    def set_reserve_date(self, day):
         self.update_status()
+        self.day = day
 
     def set_reserve_time(self):
         self.update_status()

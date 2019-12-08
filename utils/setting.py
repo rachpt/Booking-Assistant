@@ -241,8 +241,9 @@ class SettingPage(Frame):
                 "param_ok": param_ok,
             }
             # print(user_info)
-            old_cookie = update_cookie(self.Config_Path, self.Cookie_Path)
-            if auto and old_cookie:
+            _up_state = update_cookie(self.Config_Path, self.Cookie_Path)
+            # print(_up_state, auto)
+            if auto and _up_state:
                 # 旧配置 与 cookie 有效
                 self.controller.param_ok = True
             if not auto:
@@ -279,15 +280,15 @@ class SettingPage(Frame):
     def show_pwd(self):
         if self.ctrl_show_pwd:
             self.ctrl_show_pwd = False
-            self.entry_pwd.configure(show="")
+            self.entry_pwd.configure(show="*")
         else:
             self.ctrl_show_pwd = True
-            self.entry_pwd.configure(show="*")
+            self.entry_pwd.configure(show="")
 
     def show_partner_pwd(self):
         if self.ctrl_show_pa_pwd:
             self.ctrl_show_pa_pwd = False
-            self.ertry_pa_pwd.configure(show="")
+            self.ertry_pa_pwd.configure(show="*")
         else:
             self.ctrl_show_pa_pwd = True
-            self.ertry_pa_pwd.configure(show="*")
+            self.ertry_pa_pwd.configure(show="")

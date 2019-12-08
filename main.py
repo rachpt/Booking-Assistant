@@ -22,7 +22,7 @@ class MainPage(Tk):
         Tk.__init__(self, *args, **kwargs)
 
         self.author = "rachpt"
-        self.version = "v0.2.1"
+        self.version = "v0.3.0"
         self.param_ok = False
         # self.is_checking = True
         self.Ck = Thread(target=self.check, args=())
@@ -81,12 +81,12 @@ class MainPage(Tk):
     def about(self):
         messagebox.showinfo(
             title="About",
-            message="--" * 28
+            message="-" * 20
             + "\nAuthor：{author}\nVersion：{version}".format(
                 author=self.author, version=self.version
             )
             + "\nLICENSE：MIT 许可证"
-            + "\n\n更新日期：2019.11.29",
+            + "\n\n更新日期：2019.12.08",
         )
 
     def call_back(self):
