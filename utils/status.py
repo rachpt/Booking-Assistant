@@ -343,7 +343,6 @@ class RunPage(Frame):
         _text = "{}号场地\n可预约".format(ii)
         if doit and infos and self.success.get() != "Yes" and self.run_flag.get() == 1:
             is_ok = False
-            ignore_uw = False
             try:
                 is_ok = backend.appointment(
                     self.Config_Path,
@@ -355,7 +354,6 @@ class RunPage(Frame):
                     self.day,
                 )
             except UserWarning as UW:
-                ignore_uw = True
                 msg = (
                     "-" * 20 + "\n{}\n".format(UW) + "-" * 20 + "\n{}秒后重试".format(dt),
                 )
