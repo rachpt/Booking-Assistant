@@ -22,7 +22,7 @@ class MainPage(Tk):
         Tk.__init__(self, *args, **kwargs)
 
         self.author = "rachpt"
-        self.version = "v0.3.0"
+        self.version = "v0.3.1"
         self.param_ok = False
         # self.is_checking = True
         self.Ck = Thread(target=self.check, args=())
@@ -34,7 +34,7 @@ class MainPage(Tk):
             "%dx%d+%d+%d" % (750, 540, (self.X - 750) / 2, (self.Y - 540) / 2)
         )
         self.resizable(False, False)
-        self.title("自动预定运动场地 - %s" % self.version)
+        self.title("自动预定羽毛球场地 - %s" % self.version)
         self.icon_path = path.join(self.ROOT, "config/favicon.gif")
         if not path.isfile(self.icon_path):
             from utils.pic import favicon_gif, get_pic
@@ -86,7 +86,7 @@ class MainPage(Tk):
                 author=self.author, version=self.version
             )
             + "\nLICENSE：MIT 许可证"
-            + "\n\n更新日期：2019.12.08",
+            + "\n\n更新日期：2019.12.09",
         )
 
     def call_back(self):

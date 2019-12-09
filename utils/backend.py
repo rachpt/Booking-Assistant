@@ -143,6 +143,7 @@ def appointment(Config_Path, Cookie_Path, item, date_str, start_time, infos, day
     """
     参数： 1.预约场地代号，2.预约日期，3.预约时间段开始点，4.同伴信息字典，返回  bool 值
     """
+    judge_date_reached(date_str)
     global session
     r, url2 = step2_post_form(
         Config_Path, Cookie_Path, date_str, start_time, infos, item, days
@@ -185,6 +186,18 @@ def appointment(Config_Path, Cookie_Path, item, date_str, start_time, infos, day
     if r.status_code != 200:
         raise Warning(r.status_code, "step3 error:" + r.text)
     return True
+
+
+def judge_date_reached(date_str):
+    """判断是否已到预定日期"""
+    dates = []
+    date_len = 3  # 可以预定三天内的场地
+    current_day = date.today()
+    for i in range(date_len):
+        _day = current_day + timedelta(days=i)
+        dates.append(_day.strftime("%Y-%m-%d"))
+    if date_str not in dates:
+        raise UserWarning("未到预定日期！")
 
 
 def cancel_and_release(start_time, item, date_str):

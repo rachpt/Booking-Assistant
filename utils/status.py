@@ -119,7 +119,7 @@ class RunPage(Frame):
                 self.frame_3,
                 font=("Helvetica 10"),
                 text="{}号场地".format(i + 1),
-                command=self.update_status,
+                command=self.get_status,
             )
 
         self.create_page()
@@ -201,7 +201,7 @@ class RunPage(Frame):
     def job(self):
         _st = "07:59:30"  # 开始时间
         _end = "22:00:00"  # 结束时间
-        i = 1
+        i = 1  # 刷新次数计数器
         infos = backend.load_config(self.Config_Path)
         while True:
             if self.run_flag.get() == 0:
@@ -340,10 +340,11 @@ class RunPage(Frame):
 
     def try_to_reverse(self, doit, infos, key, ii, _date, _time, dt):
         """尝试预定单个场地"""
+        _text = "{}号场地\n可预约".format(ii)
         if doit and infos and self.success.get() != "Yes" and self.run_flag.get() == 1:
             is_ok = False
+            ignore_uw = False
             try:
-                sleep(1)
                 is_ok = backend.appointment(
                     self.Config_Path,
                     self.Cookie_Path,
@@ -354,12 +355,14 @@ class RunPage(Frame):
                     self.day,
                 )
             except UserWarning as UW:
+                ignore_uw = True
                 msg = (
                     "-" * 20 + "\n{}\n".format(UW) + "-" * 20 + "\n{}秒后重试".format(dt),
                 )
                 if not self.message_count_down and self.show_notice:
                     mymessage.CountDownMessageBox(self, msg)
             except Warning as War:
+                _text = "{}号场地\n尝试预约，已失败".format(ii)
                 self.stop_job()  # 退出线程
                 msg = "-" * 20 + "\n错误信息：\n{}\n".format(War) + "-" * 20
                 if self.show_notice:
@@ -369,23 +372,18 @@ class RunPage(Frame):
                 self.success.set("Yes")
                 self.successed_info = [key, _date, _time]
                 self.stop_job()  # 退出线程
-            else:
-                self.show_courts[ii - 1].configure(
-                    text="{}号场地\n尝试预约，已失败".format(ii),
-                    background="Green",
-                    highlightbackground="Gold",
-                    foreground="Gold",
-                    font=("Helvetica 10"),
-                )
-                # raise UserWarning("预约失败 д，同伴错误或者是未到时间？")
-        else:
-            self.show_courts[ii - 1].configure(
-                text="{}号场地\n可预约".format(ii),
-                background="Green",
-                highlightbackground="Gold",
-                foreground="Gold",
-                font=("Helvetica 10"),
-            )
+
+        self.color_target_court(ii, _text)
+
+    def color_target_court(self, ii, _text):
+        """上色 可预约场地"""
+        self.show_courts[ii - 1].configure(
+            text=_text,
+            background="Green",
+            highlightbackground="Gold",
+            foreground="Gold",
+            font=("Helvetica 10"),
+        )
 
     def mark_successed_place(self, court, _date, _time):
         """标记已经预定了的场地"""
@@ -434,6 +432,10 @@ class RunPage(Frame):
 
     def set_reserve_time(self):
         self.update_status()
+
+    def get_status(self):
+        if self.run_flag.get() != 1:
+            self.update_status()
 
     def turn_on_notice(self):
         if self.show_notice:
